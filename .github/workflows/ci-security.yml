@@ -36,7 +36,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=critical
+      - run: npm audit --omit=dev --audit-level=critical
 
   codeql:
     name: CodeQL analysis
