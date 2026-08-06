@@ -1,0 +1,35 @@
+{
+  "name": "@codexa/cli",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Codexa CLI — Auditoría de código con IA",
+  "license": "UNLICENSED",
+  "bin": {
+    "codexa": "dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "dist/main.js",
+  "types": "src/index.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@codexa/ai": "0.0.0",
+    "@codexa/analysis": "0.0.0",
+    "@codexa/cli-core": "0.0.0",
+    "@codexa/contracts": "0.0.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.14",
+    "typescript": "^5.5.4"
+  }
+}

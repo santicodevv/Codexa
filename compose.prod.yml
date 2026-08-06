@@ -1,0 +1,87 @@
+name: codexa
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-codexa}
+      POSTGRES_USER: ${POSTGRES_USER:-codexa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codexa}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-codexa} -d ${POSTGRES_DB:-codexa}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ${API_IMAGE:-codexa/api:latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-codexa}:${POSTGRES_PASSWORD:-codexa}@postgres:5432/${POSTGRES_DB:-codexa}
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - '3001'
+    ports:
+      - '${API_PORT:-3001}:3001'
+
+  worker:
+    image: ${WORKER_IMAGE:-codexa/worker:latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ['node', 'apps/api/dist/worker.js']
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-codexa}:${POSTGRES_PASSWORD:-codexa}@postgres:5432/${POSTGRES_DB:-codexa}
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    image: ${WEB_IMAGE:-codexa/web:latest}
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${WEB_PORT:-80}:80'
+
+volumes:
+  pgdata: {}
+  redisdata: {}
