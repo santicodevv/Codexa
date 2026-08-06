@@ -1,0 +1,15 @@
+{
+  "moduleFileExtensions": ["ts", "tsx", "js", "json"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.tsx?$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
+  },
+  "moduleNameMapper": {
+    "^@codexa/contracts$": "<rootDir>/../packages/contracts/src/index.ts",
+    "^@codexa/analysis$": "<rootDir>/../packages/analysis/src/index.ts",
+    "^@codexa/ai$": "<rootDir>/../packages/ai/src/index.ts",
+    "^@codexa/cli-core$": "<rootDir>/../packages/cli-core/src/index.ts"
+  }
+}
