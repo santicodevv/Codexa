@@ -9,6 +9,7 @@ import {
   calculateSeverityCounts,
   estimateTechnicalDebtMinutes,
 } from '../scoring/health-score-calculator'
+import { unifyFindings } from './findings-unifier'
 
 const SEVERITY_ORDER: Record<FindingSeverity, number> = {
   [FindingSeverity.Critical]: 4,
@@ -111,7 +112,8 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<AnalysisRepo
     }
   }
 
-  const sortedFindings = sortFindings(findings)
+  const unifiedFindings = unifyFindings(findings)
+  const sortedFindings = sortFindings(unifiedFindings)
   const durationMs = Date.now() - start
 
   return {

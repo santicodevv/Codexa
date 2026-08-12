@@ -1,4 +1,5 @@
 import type { AnalysisReport, AnalyzerRunStatus, Finding } from '@codexa/analysis'
+import type { AiSuggestionDto } from '@codexa/contracts'
 import { FindingSeverity } from '@codexa/contracts'
 
 const SEVERITY_ORDER: FindingSeverity[] = [
@@ -25,6 +26,7 @@ export function renderHtmlReport(report: AnalysisReport): string {
     .filter((section) => section !== null)
     .join('\n')
   const analyzersSection = renderAnalyzersSection(report.analyzerStatuses)
+  const suggestionsSection = renderSuggestionsSection(report.suggestions)
   const generatedAt = escapeHtml(report.summary.analyzedAt)
 
   return `<!doctype html>
@@ -116,6 +118,30 @@ export function renderHtmlReport(report: AnalysisReport): string {
   .status-passed { color: var(--ok); }
   .status-failed { color: var(--critical); }
   .status-error { color: var(--high); }
+  .suggestion {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--info);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .suggestion[data-type="refactor"] { border-left-color: var(--low); }
+  .suggestion[data-type="vulnerability"] { border-left-color: var(--critical); }
+  .suggestion[data-type="performance"] { border-left-color: var(--medium); }
+  .suggestion[data-type="best-practice"] { border-left-color: var(--ok); }
+  .suggestion .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .suggestion .title { font-size: 15px; font-weight: 600; }
+  .suggestion .description { margin: 0 0 10px; font-size: 14px; }
+  .code-block {
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0 0 8px;
+    overflow-x: auto;
+  }
+  .code-block pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; }
   footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
 </style>
 </head>
@@ -129,6 +155,7 @@ export function renderHtmlReport(report: AnalysisReport): string {
     ${summaryCards}
   </div>
   ${findingsSections}
+  ${suggestionsSection}
   ${analyzersSection}
   <footer>Informe generado por Codexa CLI.</footer>
 </div>
@@ -227,6 +254,43 @@ function renderAnalyzersSection(statuses: AnalyzerRunStatus[]): string {
     </tbody>
   </table>
 </section>`
+}
+
+function renderSuggestionsSection(suggestions: AiSuggestionDto[] | undefined): string {
+  if (suggestions === undefined || suggestions.length === 0) {
+    return ''
+  }
+  const items = suggestions.map(renderSuggestion).join('\n')
+  return `<section>
+  <h2>Sugerencias de IA (${suggestions.length})</h2>
+  ${items}
+</section>`
+}
+
+function renderSuggestion(suggestion: AiSuggestionDto): string {
+  const location = formatSuggestionLocation(suggestion)
+  const codeBlocks = suggestion.codeBlocks.map(renderCodeBlock).join('\n')
+  return `<div class="suggestion" data-type="${suggestion.type}">
+  <div class="head">
+    <span class="badge">${escapeHtml(suggestion.type)}</span>
+    <span class="title">${escapeHtml(suggestion.title)}</span>
+    <span class="location">${location}</span>
+  </div>
+  <p class="description">${escapeHtml(suggestion.description)}</p>
+  ${codeBlocks}
+</div>`
+}
+
+function renderCodeBlock(block: string): string {
+  return `<div class="code-block"><pre><code>${escapeHtml(block)}</code></pre></div>`
+}
+
+function formatSuggestionLocation(suggestion: AiSuggestionDto): string {
+  if (suggestion.targetFile === undefined) {
+    return ''
+  }
+  const file = escapeHtml(suggestion.targetFile)
+  return suggestion.targetLine !== undefined ? `${file}:${suggestion.targetLine}` : file
 }
 
 function formatSeverityLabel(severity: FindingSeverity): string {

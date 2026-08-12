@@ -73,4 +73,22 @@ describe('audit.command', () => {
     expect(process.exitCode).toBe(1)
     expect(runAnalysisMock).not.toHaveBeenCalled()
   })
+
+  it('given a --file path, then writes the report to disk in UTF-8 instead of stdout', async () => {
+    runAnalysisMock.mockResolvedValue(buildMinimalReport())
+    const outputFile = path.join(tempDir, 'report.md')
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    const program = new Command()
+    registerAuditCommand(program)
+
+    await program.parseAsync(['node', 'codexa', 'audit', '--path', tempDir, '--file', outputFile])
+
+    expect(consoleLogSpy).not.toHaveBeenCalled()
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining(outputFile))
+    const content = fs.readFileSync(outputFile, 'utf8')
+    expect(content).toContain('Informe de auditoría')
+    expect(process.exitCode).toBe(0)
+  })
 })

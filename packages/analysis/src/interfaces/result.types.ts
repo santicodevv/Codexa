@@ -1,4 +1,4 @@
-import type { FindingSeverity, LanguageId, SeverityCountsDto } from '@codexa/contracts'
+import type { AiSuggestionDto, FindingSeverity, LanguageId, SeverityCountsDto } from '@codexa/contracts'
 
 export interface Finding {
   id: string
@@ -37,4 +37,5 @@ export interface AnalysisReport {
   technicalDebtMinutes: number
   durationMs: number
   analyzerStatuses: AnalyzerRunStatus[]
+  suggestions?: AiSuggestionDto[]
 }

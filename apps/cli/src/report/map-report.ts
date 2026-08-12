@@ -10,7 +10,7 @@ export function toAuditReportDto(report: AnalysisReport): AuditReportDto {
     healthScore: report.healthScore,
     totalFindings: report.findings.length,
     findings: report.findings.map(toFindingDto),
-    suggestions: [],
+    suggestions: report.suggestions ?? [],
     moduleSummaries: [],
     repoSummary: report.summary,
     severityCounts: report.severityCounts,

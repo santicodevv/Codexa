@@ -1,4 +1,5 @@
 import type { AnalysisReport, Finding } from '@codexa/analysis'
+import type { AiSuggestionDto } from '@codexa/contracts'
 import { FindingSeverity } from '@codexa/contracts'
 
 const SEVERITY_ORDER: FindingSeverity[] = [
@@ -42,8 +43,31 @@ export function renderMarkdownReport(report: AnalysisReport): string {
     }
   }
 
+  if (report.suggestions !== undefined && report.suggestions.length > 0) {
+    lines.push('', '## Sugerencias de IA')
+    for (const suggestion of report.suggestions) {
+      lines.push(...formatSuggestion(suggestion))
+    }
+  }
+
   lines.push('', '---', '*Informe generado por Codexa CLI.*')
   return lines.join('\n')
+}
+
+function formatSuggestion(suggestion: AiSuggestionDto): string[] {
+  const location = suggestion.targetFile !== undefined
+    ? `${suggestion.targetFile}${suggestion.targetLine !== undefined ? `:${suggestion.targetLine}` : ''}`
+    : 'ubicación no especificada'
+  const lines: string[] = [
+    '',
+    `### [${suggestion.type}] ${suggestion.title} — ${location}`,
+    '',
+    suggestion.description,
+  ]
+  for (const block of suggestion.codeBlocks) {
+    lines.push('', '```', block, '```')
+  }
+  return lines
 }
 
 function formatSeverityLabel(severity: FindingSeverity): string {
