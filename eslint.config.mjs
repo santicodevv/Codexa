@@ -14,6 +14,8 @@ export default tseslint.config(
       '**/*.config.cjs',
       '**/*.config.mjs',
       '**/*.d.ts',
+      'tools/fixtures/**',
+      '**/__fixtures__/**',
     ],
   },
   eslint.configs.recommended,

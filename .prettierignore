@@ -6,3 +6,5 @@ reports
 package-lock.json
 docs
 .github
+tools/fixtures
+__fixtures__
