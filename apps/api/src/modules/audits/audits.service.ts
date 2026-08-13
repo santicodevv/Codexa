@@ -16,8 +16,10 @@ import {
 import type { AnalysisReport, Finding } from '@codexa/analysis'
 import { runAnalysis } from '@codexa/analysis'
 import type { PrismaService } from '../../common/prisma/prisma.service'
+import type { RedisService } from '../../common/redis/redis.service'
 
 const execFileAsync = promisify(execFile)
+const DEFAULT_LLM_CACHE_TTL_SECONDS = 60 * 60 * 24
 
 @Injectable()
 export class AuditsService {
@@ -26,6 +28,7 @@ export class AuditsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly redis: RedisService,
   ) {}
 
   async run(
@@ -57,7 +60,7 @@ export class AuditsService {
     try {
       const started = Date.now()
       const report = await runAnalysis({ rootDir: sourcePath })
-      const llmRun = await this.runSuggestions(report, sourcePath, provider, modelName)
+      const llmRun = await this.runSuggestions(report, sourcePath, repositoryId, provider, modelName)
 
       await this.persistResults(audit.id, report, llmRun)
       await this.prisma.audit.update({
@@ -132,6 +135,7 @@ export class AuditsService {
   private async runSuggestions(
     report: AnalysisReport,
     sourcePath: string,
+    repositoryId: string,
     provider?: string,
     modelName?: string,
   ): Promise<SuggestionsResult | null> {
@@ -153,17 +157,34 @@ export class AuditsService {
       return null
     }
 
+    const invokedModel = modelName ?? llmConfig.proModel
+    const cacheKey = this.buildSuggestionsCacheKey(
+      repositoryId,
+      report.summary.commitSha,
+      llmConfig.provider,
+      invokedModel,
+    )
+
+    if (cacheKey !== null) {
+      const cached = await this.redis.get(cacheKey)
+      if (cached !== null) {
+        this.logger.log(`Sugerencias de IA servidas desde caché (${cacheKey})`)
+        const parsed = JSON.parse(cached) as CachedSuggestions
+        return { ...parsed, inputTokens: 0, outputTokens: 0 }
+      }
+    }
+
     const model = createLanguageModel(llmConfig)
     const result = await analyzeAndSuggest({
       rootDir: sourcePath,
       findings: report.findings,
       repoSummary: report.summary,
       model,
-      modelName: modelName ?? llmConfig.proModel,
+      modelName: invokedModel,
       healthScore: report.healthScore,
     })
 
-    return {
+    const suggestionsResult: SuggestionsResult = {
       suggestions: result.suggestions,
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
@@ -171,6 +192,33 @@ export class AuditsService {
       provider: llmConfig.provider,
       modelName: llmConfig.proModel,
     }
+
+    if (cacheKey !== null) {
+      const cacheable: CachedSuggestions = {
+        suggestions: suggestionsResult.suggestions,
+        degraded: suggestionsResult.degraded,
+        provider: suggestionsResult.provider,
+        modelName: suggestionsResult.modelName,
+      }
+      const ttlSeconds = Number(
+        this.config.get<string>('LLM_CACHE_TTL_SECONDS') ?? String(DEFAULT_LLM_CACHE_TTL_SECONDS),
+      )
+      await this.redis.set(cacheKey, JSON.stringify(cacheable), ttlSeconds)
+    }
+
+    return suggestionsResult
+  }
+
+  private buildSuggestionsCacheKey(
+    repositoryId: string,
+    commitSha: string | undefined,
+    provider: string,
+    modelName: string,
+  ): string | null {
+    if (commitSha === undefined || commitSha.trim() === '') {
+      return null
+    }
+    return `llm:suggestions:${repositoryId}:${commitSha}:${provider}:${modelName}`
   }
 
   private async persistResults(
@@ -230,6 +278,13 @@ interface SuggestionsResult {
   suggestions: AiSuggestionDto[]
   inputTokens: number
   outputTokens: number
+  degraded: boolean
+  provider: string
+  modelName: string
+}
+
+interface CachedSuggestions {
+  suggestions: AiSuggestionDto[]
   degraded: boolean
   provider: string
   modelName: string

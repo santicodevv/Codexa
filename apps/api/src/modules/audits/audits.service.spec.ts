@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common'
 import type { ConfigService } from '@nestjs/config'
 import { AuditStatus } from '@codexa/contracts'
 import type { PrismaService } from '../../common/prisma/prisma.service'
+import type { RedisService } from '../../common/redis/redis.service'
 import { AuditsService } from './audits.service'
 
 jest.mock('@codexa/analysis', () => ({
@@ -16,7 +17,7 @@ jest.mock('@codexa/ai', () => ({
 }))
 
 import { runAnalysis } from '@codexa/analysis'
-import { hasLlmCredentials, resolveLlmConfig } from '@codexa/ai'
+import { analyzeAndSuggest, createLanguageModel, hasLlmCredentials, resolveLlmConfig } from '@codexa/ai'
 
 const sampleReport = {
   summary: { name: 'demo', language: 'typescript', fileCount: 1, dependencyCount: 0, analyzedAt: 'x' },
@@ -36,6 +37,17 @@ const sampleReport = {
   technicalDebtMinutes: 30,
   durationMs: 120,
   analyzerStatuses: [],
+}
+
+const sampleReportWithCommit = {
+  ...sampleReport,
+  summary: { ...sampleReport.summary, commitSha: 'abc123' },
+}
+
+const sampleLlmConfig = {
+  provider: 'anthropic',
+  miniModel: 'claude-haiku-4-5',
+  proModel: 'claude-sonnet-4-5',
 }
 
 describe('AuditsService', () => {
@@ -62,18 +74,25 @@ describe('AuditsService', () => {
         return undefined
       }),
     }
+    const redis = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn(),
+    }
 
     const service = new AuditsService(
       (overrides.prisma ?? prisma) as unknown as PrismaService,
       (overrides.config ?? config) as unknown as ConfigService,
+      (overrides.redis ?? redis) as unknown as RedisService,
     )
-    return { service, prisma, config }
+    return { service, prisma, config, redis }
   }
 
   beforeEach(() => {
     jest.mocked(runAnalysis).mockReset()
     jest.mocked(hasLlmCredentials).mockReset()
     jest.mocked(resolveLlmConfig).mockReset()
+    jest.mocked(analyzeAndSuggest).mockReset()
+    jest.mocked(createLanguageModel).mockReset()
   })
 
   it('given an unauthorized repository, then throws not found', async () => {
@@ -170,5 +189,74 @@ describe('AuditsService', () => {
       status: 400,
     })
     expect(prisma.audit.create).not.toHaveBeenCalled()
+  })
+
+  it('given a cache miss with LLM credentials, then calls the LLM and caches the suggestions', async () => {
+    const { service, prisma, redis } = buildService()
+    prisma.repository.findFirst.mockResolvedValue({
+      id: 'repo-1',
+      ownerId: 'owner-1',
+      url: '',
+      localPath: 'tools/fixtures/ts-basic',
+    })
+    prisma.audit.create.mockResolvedValue({ id: 'audit-1' })
+    prisma.audit.update.mockResolvedValue({ id: 'audit-1' })
+    jest.mocked(runAnalysis).mockResolvedValue(sampleReportWithCommit as never)
+    jest.mocked(hasLlmCredentials).mockReturnValue(true)
+    jest.mocked(resolveLlmConfig).mockReturnValue(sampleLlmConfig as never)
+    jest.mocked(createLanguageModel).mockReturnValue({} as never)
+    jest.mocked(analyzeAndSuggest).mockResolvedValue({
+      suggestions: [{ type: 'refactor', title: 'Divide módulo', description: 'x', codeBlocks: [] }],
+      inputTokens: 100,
+      outputTokens: 50,
+      degraded: false,
+    } as never)
+
+    await service.run('repo-1', 'owner-1')
+
+    expect(redis.get).toHaveBeenCalledWith(
+      'llm:suggestions:repo-1:abc123:anthropic:claude-sonnet-4-5',
+    )
+    expect(analyzeAndSuggest).toHaveBeenCalledTimes(1)
+    expect(redis.set).toHaveBeenCalledWith(
+      'llm:suggestions:repo-1:abc123:anthropic:claude-sonnet-4-5',
+      expect.stringContaining('Divide módulo'),
+      60 * 60 * 24,
+    )
+    expect(prisma.llmUsage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inputTokens: 100, outputTokens: 50 }),
+    })
+  })
+
+  it('given a cache hit with LLM credentials, then reuses the cached suggestions without calling the LLM', async () => {
+    const cached = JSON.stringify({
+      suggestions: [{ type: 'refactor', title: 'Divide módulo', description: 'x', codeBlocks: [] }],
+      degraded: false,
+      provider: 'anthropic',
+      modelName: 'claude-sonnet-4-5',
+    })
+    const { service, prisma, redis } = buildService()
+    redis.get.mockResolvedValue(cached)
+    prisma.repository.findFirst.mockResolvedValue({
+      id: 'repo-1',
+      ownerId: 'owner-1',
+      url: '',
+      localPath: 'tools/fixtures/ts-basic',
+    })
+    prisma.audit.create.mockResolvedValue({ id: 'audit-1' })
+    prisma.audit.update.mockResolvedValue({ id: 'audit-1' })
+    jest.mocked(runAnalysis).mockResolvedValue(sampleReportWithCommit as never)
+    jest.mocked(hasLlmCredentials).mockReturnValue(true)
+    jest.mocked(resolveLlmConfig).mockReturnValue(sampleLlmConfig as never)
+
+    await service.run('repo-1', 'owner-1')
+
+    expect(analyzeAndSuggest).not.toHaveBeenCalled()
+    expect(createLanguageModel).not.toHaveBeenCalled()
+    expect(redis.set).not.toHaveBeenCalled()
+    expect(prisma.aiSuggestion.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ auditId: 'audit-1', title: 'Divide módulo' })],
+    })
+    expect(prisma.llmUsage.create).not.toHaveBeenCalled()
   })
 })

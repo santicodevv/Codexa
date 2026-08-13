@@ -44,6 +44,9 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 ### Changed
 - `AppModule` de la API registra auth, repositories y audits con CQRS.
 
+### Added
+- Caché en Redis de sugerencias de IA por `repositorio + commit + proveedor + modelo` (`LLM_CACHE_TTL_SECONDS`, default 24h). Evita repetir la llamada al LLM cuando se re-audita el mismo commit; solo aplica cuando el directorio tiene un commit de git resuelto.
+
 ### Fixed
 - Rate limiting vía Redis en `POST /auth/register` y `POST /auth/login` (10 intentos / 15 min por IP); antes solo cubría el endpoint de auditorías pese a lo indicado en este changelog.
 - Error de tipos en `audits.service.spec.ts` (mock de `ConfigService` mal tipado).
