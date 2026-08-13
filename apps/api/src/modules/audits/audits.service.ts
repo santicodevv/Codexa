@@ -1,0 +1,259 @@
+import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import os from 'node:os'
+import path from 'node:path'
+import { promisify } from 'node:util'
+import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import type { ConfigService } from '@nestjs/config'
+import { AuditStatus, ServiceException } from '@codexa/contracts'
+import type { AiSuggestionDto } from '@codexa/contracts'
+import {
+  analyzeAndSuggest,
+  createLanguageModel,
+  hasLlmCredentials,
+  resolveLlmConfig,
+} from '@codexa/ai'
+import type { AnalysisReport, Finding } from '@codexa/analysis'
+import { runAnalysis } from '@codexa/analysis'
+import type { PrismaService } from '../../common/prisma/prisma.service'
+
+const execFileAsync = promisify(execFile)
+
+@Injectable()
+export class AuditsService {
+  private readonly logger = new Logger(AuditsService.name)
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async run(
+    repositoryId: string,
+    ownerId: string,
+    provider?: string,
+    modelName?: string,
+  ): Promise<{ id: string; status: string }> {
+    const repository = await this.prisma.repository.findFirst({
+      where: { id: repositoryId, ownerId },
+    })
+    if (repository === null) {
+      throw new NotFoundException('El repositorio no existe')
+    }
+
+    const sourcePath = await this.resolveSourcePath(repository.url, repository.localPath)
+
+    const audit = await this.prisma.audit.create({
+      data: {
+        repositoryId,
+        triggeredBy: ownerId,
+        status: AuditStatus.Running,
+        provider: provider ?? null,
+        modelName: modelName ?? null,
+        startedAt: new Date(),
+      },
+    })
+
+    try {
+      const started = Date.now()
+      const report = await runAnalysis({ rootDir: sourcePath })
+      const llmRun = await this.runSuggestions(report, sourcePath, provider, modelName)
+
+      await this.persistResults(audit.id, report, llmRun)
+      await this.prisma.audit.update({
+        where: { id: audit.id },
+        data: {
+          status: AuditStatus.Completed,
+          commitSha: report.summary.commitSha ?? null,
+          healthScore: report.healthScore,
+          criticalCount: report.severityCounts.critical,
+          mediumCount: report.severityCounts.medium,
+          lowCount: report.severityCounts.low,
+          totalFindings: report.findings.length,
+          estimatedDebtHours: report.technicalDebtMinutes / 60,
+          durationMs: Date.now() - started,
+          completedAt: new Date(),
+        },
+      })
+      await this.prisma.repository.update({
+        where: { id: repositoryId },
+        data: { lastAuditAt: new Date() },
+      })
+
+      return { id: audit.id, status: AuditStatus.Completed }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido'
+      this.logger.error(`Auditoría ${audit.id} falló: ${message}`)
+      await this.prisma.audit.update({
+        where: { id: audit.id },
+        data: { status: AuditStatus.Failed, errorMessage: message, completedAt: new Date() },
+      })
+      return { id: audit.id, status: AuditStatus.Failed }
+    }
+  }
+
+  private async resolveSourcePath(url: string, localPath: string | null): Promise<string> {
+    if (localPath !== null && localPath.trim() !== '') {
+      return path.resolve(localPath)
+    }
+    if (url !== null && url !== '') {
+      return this.cloneRepository(url)
+    }
+    throw new ServiceException(
+      'El repositorio no tiene una fuente local ni remota',
+      'repository.no_source',
+      400,
+    )
+  }
+
+  private async cloneRepository(url: string): Promise<string> {
+    if (!/^(https?:\/\/|git@)[^\s]+$/.test(url)) {
+      throw new ServiceException('URL de repositorio inválida', 'repository.invalid_url', 400)
+    }
+
+    const workspace =
+      this.config.get<string>('WORKSPACE_DIR') ?? path.join(os.tmpdir(), 'codexa-workspace')
+    const destination = path.join(workspace, `${randomUUID()}`)
+
+    try {
+      await execFileAsync('git', ['clone', '--depth', '1', url, destination], {
+        timeout: 120_000,
+      })
+      return destination
+    } catch (error) {
+      throw new ServiceException(
+        `No se pudo clonar el repositorio: ${error instanceof Error ? error.message : 'error'}`,
+        'repository.clone_failed',
+        400,
+      )
+    }
+  }
+
+  private async runSuggestions(
+    report: AnalysisReport,
+    sourcePath: string,
+    provider?: string,
+    modelName?: string,
+  ): Promise<SuggestionsResult | null> {
+    const env = this.config.get('LLM_PROVIDER')
+    const llmConfig = resolveLlmConfig({
+      LLM_PROVIDER: provider ?? env,
+      LLM_API_KEY: this.config.get('LLM_API_KEY') ?? undefined,
+      ANTHROPIC_API_KEY: this.config.get('ANTHROPIC_API_KEY') ?? undefined,
+      LLM_BASE_URL: this.config.get('LLM_BASE_URL') ?? undefined,
+      LLM_MODEL_MINI: this.config.get('LLM_MODEL_MINI') ?? undefined,
+      LLM_MODEL_PRO: this.config.get('LLM_MODEL_PRO') ?? undefined,
+    })
+
+    const credentialsAvailable = hasLlmCredentials({
+      LLM_API_KEY: this.config.get('LLM_API_KEY') ?? undefined,
+      ANTHROPIC_API_KEY: this.config.get('ANTHROPIC_API_KEY') ?? undefined,
+    })
+    if (!credentialsAvailable) {
+      return null
+    }
+
+    const model = createLanguageModel(llmConfig)
+    const result = await analyzeAndSuggest({
+      rootDir: sourcePath,
+      findings: report.findings,
+      repoSummary: report.summary,
+      model,
+      modelName: modelName ?? llmConfig.proModel,
+      healthScore: report.healthScore,
+    })
+
+    return {
+      suggestions: result.suggestions,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      degraded: result.degraded,
+      provider: llmConfig.provider,
+      modelName: llmConfig.proModel,
+    }
+  }
+
+  private async persistResults(
+    auditId: string,
+    report: AnalysisReport,
+    llmRun: SuggestionsResult | null,
+  ): Promise<void> {
+    const findings = report.findings.map((finding) => ({
+      auditId,
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      likelihood: finding.likelihood,
+      message: finding.message,
+      filePath: finding.filePath,
+      lineNumber: finding.lineNumber ?? null,
+      columnNumber: finding.columnNumber ?? null,
+      metadata: (finding.metadata ?? {}) as object,
+    }))
+
+    const suggestions = (llmRun?.suggestions ?? []).map((suggestion) => ({
+      auditId,
+      type: suggestion.type,
+      title: suggestion.title,
+      description: suggestion.description,
+      targetFile: suggestion.targetFile ?? null,
+      targetLine: suggestion.targetLine ?? null,
+      codeBlocks: suggestion.codeBlocks,
+      modelReasoning: llmRun?.modelName ?? null,
+    }))
+
+    const moduleSummaries = groupByModule(auditId, report.findings)
+
+    await this.prisma.$transaction([
+      this.prisma.finding.createMany({ data: findings }),
+      ...(suggestions.length > 0
+        ? [this.prisma.aiSuggestion.createMany({ data: suggestions })]
+        : []),
+      this.prisma.moduleSummary.createMany({ data: moduleSummaries }),
+      ...(llmRun !== null && llmRun.inputTokens + llmRun.outputTokens > 0
+        ? [
+            this.prisma.llmUsage.create({
+              data: {
+                auditId,
+                provider: llmRun.provider,
+                modelName: llmRun.modelName,
+                inputTokens: llmRun.inputTokens,
+                outputTokens: llmRun.outputTokens,
+              },
+            }),
+          ]
+        : []),
+    ])
+  }
+}
+
+interface SuggestionsResult {
+  suggestions: AiSuggestionDto[]
+  inputTokens: number
+  outputTokens: number
+  degraded: boolean
+  provider: string
+  modelName: string
+}
+
+function groupByModule(auditId: string, findings: Finding[]): ModuleSummaryInput[] {
+  const counts = new Map<string, number>()
+  for (const finding of findings) {
+    const moduleName = finding.filePath.split('/')[0] || 'root'
+    counts.set(moduleName, (counts.get(moduleName) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([moduleName, findingCount]) => ({
+    auditId,
+    moduleName,
+    findingCount,
+    moduleScore: Math.max(0, 100 - findingCount * 5),
+    breakdown: {},
+  }))
+}
+
+interface ModuleSummaryInput {
+  auditId: string
+  moduleName: string
+  findingCount: number
+  moduleScore: number
+  breakdown: Record<string, never>
+}

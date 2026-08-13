@@ -27,7 +27,34 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 3. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
+## 3. [0.2.0] — 2026-08-12 (Fase 2: plataforma web)
+
+> Fase 2: API + dashboard + persistencia con PostgreSQL/Redis.
+
+### Added
+- Módulo `auth`: registro con política de contraseñas, login, refresh rotativo con revocación de familia y logout (bcrypt cost 12).
+- Módulo `repositories` (CQRS): crear, listar, detalle y eliminar con propiedad del usuario (evita IDOR).
+- Módulo `audits` (CQRS): ejecución síncrona persistida (audits + findings + ai_suggestions + module_summaries + llm_usages) con transacción única, historial paginado y rate limiting vía Redis.
+- Soporte de fuente por `localPath` o clonado `git clone --depth 1` desde URL remota.
+- Módulo Redis común (`RedisService`) para caché y rate limiting.
+- `JwtAuthGuard` global con decorador `@Public()` y `@CurrentUser` desde el token.
+- Dashboard React (React Router + axios): login/registro, lista de repositorios con última auditoría, detalle con Health Score, sugerencias de IA, resumen por módulo, hallazgos e historial.
+- Interceptor axios con renovación automática del refresh token ante 401.
+
+### Changed
+- `AppModule` de la API registra auth, repositories y audits con CQRS.
+
+### Fixed
+- Rate limiting vía Redis en `POST /auth/register` y `POST /auth/login` (10 intentos / 15 min por IP); antes solo cubría el endpoint de auditorías pese a lo indicado en este changelog.
+- Error de tipos en `audits.service.spec.ts` (mock de `ConfigService` mal tipado).
+- `App.test.tsx` desactualizado: ahora verifica el contenido real de la página de login en vez del heading "Codexa" que ya no existe.
+
+### Removed
+- Fixture `tools/fixtures/demo-app` y su golden de evaluación (se mantienen `ts-basic`, `js-esm`, `npm-lock`).
+
+---
+
+## 4. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
 
 > Fase 1: auditoría local + reporte con sugerencias de IA.
 
@@ -43,7 +70,7 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 4. Formato de una entrada
+## 5. Formato de una entrada
 
 ```markdown
 ## [X.Y.Z] — AAAA-MM-DD
@@ -62,7 +89,7 @@ Reglas:
 
 ---
 
-## 5. Historial del documento
+## 6. Historial del documento
 
 | Versión | Fecha      | Cambios                              |
 | ------- | ---------- | ------------------------------------ |
