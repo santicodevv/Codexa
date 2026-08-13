@@ -8,6 +8,11 @@ export class RunAuditHandler implements ICommandHandler<RunAuditCommand> {
   constructor(private readonly audits: AuditsService) {}
 
   execute(command: RunAuditCommand) {
-    return this.audits.run(command.repositoryId, command.ownerId, command.provider, command.model)
+    return this.audits.enqueue(
+      command.repositoryId,
+      command.ownerId,
+      command.provider,
+      command.model,
+    )
   }
 }

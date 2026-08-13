@@ -1,20 +1,33 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, getErrorMessage } from '../api/client'
-import type { AuditDetail, AuditHistory, RepositoryDetail } from '../api/types'
+import type { AuditDetail, AuditHistory, HealthTrendResponse, RepositoryDetail } from '../api/types'
 import { HealthScore } from '../components/HealthScore'
+import { HealthScoreTrendChart } from '../components/HealthScoreTrendChart'
 import { SeverityBadge } from '../components/SeverityBadge'
 import { Spinner } from '../components/Spinner'
+
+const POLL_INTERVAL_MS = 2_000
+const POLL_TIMEOUT_MS = 5 * 60 * 1_000
+const IN_PROGRESS_STATUSES = new Set(['pending', 'running'])
 
 export function RepositoryDetailPage(): ReactElement {
   const { repositoryId } = useParams<{ repositoryId: string }>()
   const [repository, setRepository] = useState<RepositoryDetail | null>(null)
   const [audit, setAudit] = useState<AuditDetail | null>(null)
   const [history, setHistory] = useState<AuditHistory | null>(null)
+  const [trend, setTrend] = useState<HealthTrendResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     if (repositoryId === undefined) {
@@ -23,12 +36,14 @@ export function RepositoryDetailPage(): ReactElement {
     setLoading(true)
     setError(null)
     try {
-      const [repositoryResponse, historyResponse] = await Promise.all([
+      const [repositoryResponse, historyResponse, trendResponse] = await Promise.all([
         api.get<RepositoryDetail>(`/repositories/${repositoryId}`),
         api.get<AuditHistory>(`/repositories/${repositoryId}/audits?page=1&pageSize=10`),
+        api.get<HealthTrendResponse>(`/repositories/${repositoryId}/audits/trend`),
       ])
       setRepository(repositoryResponse.data)
       setHistory(historyResponse.data)
+      setTrend(trendResponse.data)
       const latest = historyResponse.data.items[0]
       if (latest !== undefined && latest.status === 'completed') {
         const auditResponse = await api.get<AuditDetail>(
@@ -60,16 +75,61 @@ export function RepositoryDetailPage(): ReactElement {
         `/repositories/${repositoryId}/audits`,
         {},
       )
-      if (data.status === 'completed') {
-        await loadData()
-      } else {
-        setError('La auditoría no pudo completarse. Revisa la ruta del repositorio.')
-        await loadData()
+      await pollAudit(repositoryId, data.id)
+    } catch (caught) {
+      if (!cancelledRef.current) {
+        setError(getErrorMessage(caught))
       }
+    } finally {
+      if (!cancelledRef.current) {
+        setRunning(false)
+      }
+    }
+  }
+
+  async function downloadPdf(auditId: string): Promise<void> {
+    if (repositoryId === undefined) {
+      return
+    }
+    try {
+      const response = await api.get<Blob>(
+        `/repositories/${repositoryId}/audits/${auditId}/export.pdf`,
+        { responseType: 'blob' },
+      )
+      const url = window.URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `codexa-audit-${auditId}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
     } catch (caught) {
       setError(getErrorMessage(caught))
-    } finally {
-      setRunning(false)
+    }
+  }
+
+  async function pollAudit(repoId: string, auditId: string): Promise<void> {
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      if (cancelledRef.current) {
+        return
+      }
+      const { data } = await api.get<AuditDetail>(`/repositories/${repoId}/audits/${auditId}`)
+      if (cancelledRef.current) {
+        return
+      }
+      if (!IN_PROGRESS_STATUSES.has(data.status)) {
+        if (data.status === 'failed') {
+          setError(data.errorMessage ?? 'La auditoría falló.')
+        }
+        await loadData()
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+    }
+    if (!cancelledRef.current) {
+      setError(
+        'Esto está tardando más de lo esperado. Verifica que el proceso worker (npm run start:worker) esté corriendo.',
+      )
     }
   }
 
@@ -109,14 +169,25 @@ export function RepositoryDetailPage(): ReactElement {
               {repository.provider}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => void runAudit()}
-            disabled={running}
-            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {running ? 'Auditando…' : 'Ejecutar auditoría'}
-          </button>
+          <div className="flex items-center gap-2">
+            {audit !== null && (
+              <button
+                type="button"
+                onClick={() => void downloadPdf(audit.id)}
+                className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Descargar PDF
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void runAudit()}
+              disabled={running}
+              className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {running ? 'Auditando…' : 'Ejecutar auditoría'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -242,6 +313,13 @@ export function RepositoryDetailPage(): ReactElement {
             </section>
           </>
         )}
+
+        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Tendencia de Health Score</h2>
+          <div className="mt-4">
+            <HealthScoreTrendChart points={trend?.items ?? []} />
+          </div>
+        </section>
 
         <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Historial de auditorías</h2>

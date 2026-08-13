@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import type { ConfigService } from '@nestjs/config'
 import { AuditStatus, ServiceException } from '@codexa/contracts'
 import type { AiSuggestionDto } from '@codexa/contracts'
@@ -15,6 +15,8 @@ import {
 } from '@codexa/ai'
 import type { AnalysisReport, Finding } from '@codexa/analysis'
 import { runAnalysis } from '@codexa/analysis'
+import type { Queue } from 'bullmq'
+import { AUDITS_QUEUE, RUN_AUDIT_JOB } from '../../common/queue/queue.constants'
 import type { PrismaService } from '../../common/prisma/prisma.service'
 import type { RedisService } from '../../common/redis/redis.service'
 
@@ -29,9 +31,10 @@ export class AuditsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
+    @Inject(AUDITS_QUEUE) private readonly auditsQueue: Queue,
   ) {}
 
-  async run(
+  async enqueue(
     repositoryId: string,
     ownerId: string,
     provider?: string,
@@ -44,23 +47,54 @@ export class AuditsService {
       throw new NotFoundException('El repositorio no existe')
     }
 
-    const sourcePath = await this.resolveSourcePath(repository.url, repository.localPath)
-
     const audit = await this.prisma.audit.create({
       data: {
         repositoryId,
         triggeredBy: ownerId,
-        status: AuditStatus.Running,
+        status: AuditStatus.Pending,
         provider: provider ?? null,
         modelName: modelName ?? null,
-        startedAt: new Date(),
       },
+    })
+
+    await this.auditsQueue.add(
+      RUN_AUDIT_JOB,
+      { auditId: audit.id },
+      {
+        jobId: audit.id,
+        attempts: 1,
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 500 },
+      },
+    )
+
+    return { id: audit.id, status: AuditStatus.Pending }
+  }
+
+  async processAudit(auditId: string): Promise<{ id: string; status: string }> {
+    const audit = await this.prisma.audit.findUniqueOrThrow({
+      where: { id: auditId },
+      include: { repository: true },
+    })
+    await this.prisma.audit.update({
+      where: { id: auditId },
+      data: { status: AuditStatus.Running, startedAt: new Date() },
     })
 
     try {
       const started = Date.now()
+      const sourcePath = await this.resolveSourcePath(
+        audit.repository.url,
+        audit.repository.localPath,
+      )
       const report = await runAnalysis({ rootDir: sourcePath })
-      const llmRun = await this.runSuggestions(report, sourcePath, repositoryId, provider, modelName)
+      const llmRun = await this.runSuggestions(
+        report,
+        sourcePath,
+        audit.repositoryId,
+        audit.provider ?? undefined,
+        audit.modelName ?? undefined,
+      )
 
       await this.persistResults(audit.id, report, llmRun)
       await this.prisma.audit.update({
@@ -79,7 +113,7 @@ export class AuditsService {
         },
       })
       await this.prisma.repository.update({
-        where: { id: repositoryId },
+        where: { id: audit.repositoryId },
         data: { lastAuditAt: new Date() },
       })
 
@@ -91,7 +125,7 @@ export class AuditsService {
         where: { id: audit.id },
         data: { status: AuditStatus.Failed, errorMessage: message, completedAt: new Date() },
       })
-      return { id: audit.id, status: AuditStatus.Failed }
+      throw error
     }
   }
 

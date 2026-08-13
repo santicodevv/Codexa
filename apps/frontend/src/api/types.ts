@@ -98,6 +98,20 @@ export interface ModuleSummary {
   findingCount: number
 }
 
+export interface HealthTrendPoint {
+  id: string
+  healthScore: number | null
+  criticalCount: number | null
+  mediumCount: number | null
+  lowCount: number | null
+  totalFindings: number | null
+  startedAt: string | null
+}
+
+export interface HealthTrendResponse {
+  items: HealthTrendPoint[]
+}
+
 export interface AuditDetail {
   id: string
   repository: { name: string; url: string }

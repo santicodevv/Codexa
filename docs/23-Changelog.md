@@ -27,7 +27,36 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 3. [0.2.0] — 2026-08-12 (Fase 2: plataforma web)
+## 3. [0.3.0] — 2026-08-13 (Fase 2: cierre P1/P2)
+
+> Cierra los ítems P1/P2 pendientes de la Fase 2: cola de auditorías async, export PDF y
+> tendencias de Health Score.
+
+### Added
+- Cola de auditorías con **BullMQ** sobre Redis: `POST /repositories/:id/audits` ahora encola el
+  trabajo y responde de inmediato con `status: pending`; un proceso worker separado
+  (`npm run start:worker`, `apps/api/src/worker.ts`) consume la cola y ejecuta el análisis +
+  sugerencias de IA. `AuditsService.run()` se dividió en `enqueue()` (crea la fila `Audit` y
+  encola el job) y `processAudit()` (la ejecución real, invocada por el worker).
+- Exportación de reportes a **PDF** (`pdfkit`): `GET /repositories/:id/audits/:auditId/export.pdf`
+  genera un PDF con Health Score, severidades, deuda técnica, resumen por módulo, sugerencias de
+  IA y hallazgos. Botón "Descargar PDF" en el dashboard.
+- **Tendencias de Health Score**: `GET /repositories/:id/audits/trend` devuelve los últimos N
+  audits completados; nuevo componente `HealthScoreTrendChart` (SVG propio, sin librería nueva)
+  en el detalle de repositorio.
+- El dashboard ahora hace *polling* del estado de la auditoría (`pending`/`running` →
+  `completed`/`failed`) en vez de esperar una respuesta síncrona, con timeout de 5 minutos que
+  avisa si el worker no está corriendo.
+
+### Changed
+- `POST /repositories/:id/audits` pasó de responder el resultado final (síncrono) a responder
+  `202`-like `{ status: 'pending' }` de inmediato. Un repositorio con `url`/`localPath` inválido
+  ya no falla con 400 en el POST: crea una fila `Audit` que pasa a `failed` una vez que el worker
+  la procesa (trade-off inherente a ir async).
+
+---
+
+## 4. [0.2.0] — 2026-08-12 (Fase 2: plataforma web)
 
 > Fase 2: API + dashboard + persistencia con PostgreSQL/Redis.
 
@@ -57,7 +86,7 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 4. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
+## 5. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
 
 > Fase 1: auditoría local + reporte con sugerencias de IA.
 
