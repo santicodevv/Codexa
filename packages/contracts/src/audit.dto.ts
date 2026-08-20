@@ -1,4 +1,4 @@
-import type { AuditStatus, FindingSeverity, SuggestionType } from './enums'
+import type { AuditStatus, FindingSeverity, LanguageId, SuggestionType } from './enums'
 
 export interface FindingDto {
   id: string
@@ -8,6 +8,17 @@ export interface FindingDto {
   filePath: string
   lineNumber?: number
   columnNumber?: number
+  likelihood?: number
+  priority?: number
+}
+
+export interface RepoSummaryDto {
+  name: string
+  language: LanguageId
+  fileCount: number
+  dependencyCount: number
+  commitSha?: string
+  analyzedAt: string
 }
 
 export interface AiSuggestionDto {
@@ -26,6 +37,21 @@ export interface ModuleSummaryDto {
   findingCount: number
 }
 
+export interface SeverityCountsDto {
+  critical: number
+  high: number
+  medium: number
+  low: number
+  info: number
+}
+
+export interface AnalyzerRunStatusDto {
+  analyzer: string
+  status: 'passed' | 'failed' | 'error'
+  findingCount: number
+  durationMs: number
+}
+
 export interface AuditReportDto {
   id: string
   status: AuditStatus
@@ -34,6 +60,11 @@ export interface AuditReportDto {
   findings: FindingDto[]
   suggestions: AiSuggestionDto[]
   moduleSummaries: ModuleSummaryDto[]
+  repoSummary?: RepoSummaryDto
+  severityCounts?: SeverityCountsDto
+  technicalDebtMinutes?: number
+  durationMs?: number
+  analyzerStatuses?: AnalyzerRunStatusDto[]
   startedAt?: string
   completedAt?: string
 }

@@ -1,10 +1,13 @@
 import { Logger } from '@nestjs/common'
+import { NestFactory } from '@nestjs/core'
+import { WorkerModule } from './worker.module'
 
 const logger = new Logger('Worker')
 
-function main(): void {
-  logger.log('Worker BullMQ no implementado todavía; se añadirá en la fase 2.')
-  setInterval(() => undefined, 1 << 30)
+async function main(): Promise<void> {
+  const app = await NestFactory.createApplicationContext(WorkerModule)
+  app.enableShutdownHooks()
+  logger.log('Worker BullMQ iniciado, escuchando la cola de auditorías')
 }
 
-main()
+void main()
