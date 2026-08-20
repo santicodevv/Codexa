@@ -37,6 +37,7 @@ Reglas:
 | `LLM_CACHE_TTL_SECONDS` | No    | `86400`           | TTL de la caché en Redis de sugerencias de IA por repo+commit+modelo. |
 | `AUDIT_RATE_LIMIT`  | No        | `20`              | Auditorías por hora por usuario (Redis). |
 | `AUTH_RATE_LIMIT`   | No        | `10`              | Intentos de login/registro por 15 min por IP (Redis). |
+| `CI_AUDIT_RATE_LIMIT` | No      | `30`              | Auditorías por hora por repositorio vía `POST /api/ci/audits` (Redis). |
 | `GITHUB_APP_ID`     | Condicional | —                | GitHub App (solo integración GitHub).    |
 | `GITHUB_PRIVATE_KEY`| Condicional | —                | Clave privada `.pem` de la App.          |
 | `GITHUB_WEBHOOK_SECRET` | Condicional | —            | Verificación de webhooks.                |

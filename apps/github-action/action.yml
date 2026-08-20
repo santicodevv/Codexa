@@ -1,0 +1,26 @@
+name: "Codexa Audit"
+description: "Audita el repositorio y publica el reporte en el PR."
+inputs:
+  api-url:
+    description: "URL de la API de Codexa"
+    required: true
+  api-key:
+    description: "API key de CI del repositorio (generada desde el dashboard de Codexa)"
+    required: true
+  llm-provider:
+    description: "anthropic | openai | gemini | deepseek | kimi | nvidia | openai-compatible"
+    required: false
+  fail-on-critical:
+    description: "Fallar si hay al menos este número de hallazgos críticos (default 0 = fallar con cualquier crítico)"
+    required: false
+    default: "0"
+  github-token:
+    description: "Token para comentar el PR y crear el check run"
+    required: false
+    default: ${{ github.token }}
+outputs:
+  health-score:
+    description: "Health Score del reporte"
+runs:
+  using: "node20"
+  main: "dist/index.js"

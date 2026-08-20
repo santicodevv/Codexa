@@ -251,14 +251,22 @@ usuario que lo conecta.
 
 ## 8. Checklist de implementación
 
-- [ ] Registro de GitHub App + guardado cifrado de credenciales.
-- [ ] `GitHubTokenService` (JWT App + installation token) con tests mock.
-- [ ] Action `codexa/audit` con node runtime y tests locales.
-- [ ] Crear check run y comentario resumen en PR.
-- [ ] Comentarios inline solo en líneas del diff.
-- [ ] `fail-on-critical` con umbral configurable.
-- [ ] Webhook con verificación de firma (Fase 3+).
-- [ ] Conectar repositorio desde el dashboard (Fase 3).
+- [ ] Registro de GitHub App + guardado cifrado de credenciales. *(slice 2, no empezado)*
+- [ ] `GitHubTokenService` (JWT App + installation token) con tests mock. *(slice 2, no empezado)*
+- [x] Action `codexa/audit` con node runtime y tests locales — `apps/github-action`, sin dependencia
+      de la GitHub App: autentica contra la API de Codexa con una API key por repositorio
+      (`X-Codexa-Api-Key`, ver [14-API-Documentation] §3.4 y §5) y usa el `GITHUB_TOKEN` del propio
+      workflow (input `github-token`, default `${{ github.token }}`) para comentar el PR.
+- [x] Crear check run y comentario resumen en PR.
+- [x] Comentarios inline solo en líneas del diff (solo hallazgos `critical`; diff parseado del
+      `patch` de `GET /pulls/{pr}/files`, sin dependencias externas).
+- [x] `fail-on-critical` con umbral configurable (`apps/github-action/src/threshold.ts`).
+- [ ] Webhook con verificación de firma (Fase 3+, slice 2).
+- [ ] Conectar repositorio desde el dashboard (Fase 3, slice 2 — hoy la API key de CI se genera
+      manualmente vía `POST /repositories/{id}/ci-key`, sin UI todavía).
+
+> **Nota:** el output `report-url` del `action.yml` original de este documento se quitó — no existe
+> todavía una vista de reporte pública/compartible para auditorías disparadas por CI.
 
 ---
 
@@ -267,7 +275,9 @@ usuario que lo conecta.
 | Versión | Fecha      | Cambios                              |
 | ------- | ---------- | ------------------------------------ |
 | v0.1    | 2026-08-05 | Primera versión completa (Entrega 3) |
+| v0.2    | 2026-08-20 | §8 actualizado: slice 1 (Action `codexa/audit`, §3-4) implementado sin depender de la GitHub App (§2, slice 2 pendiente). |
 
 ---
 
 [19-Security]: 19-Security.md
+[14-API-Documentation]: 14-API-Documentation.md

@@ -132,6 +132,20 @@ Authorization: Bearer <token>
 204 No Content
 ```
 
+### 3.4 Generar (o rotar) la API key de CI
+
+```
+POST /api/repositories/{id}/ci-key
+Authorization: Bearer <token>
+
+200
+{ "apiKey": "cxa_3f9a1c..." }
+```
+
+> El valor en texto plano solo se devuelve en esta respuesta — solo el hash (SHA-256) queda
+> persistido. Usar este valor como `api-key` de la GitHub Action `codexa/audit` (§5). Generar de
+> nuevo invalida la key anterior.
+
 ---
 
 ## 4. Auditorías
@@ -259,28 +273,52 @@ Authorization: Bearer <token>
 
 ## 5. Endpoints para CI / GitHub Action
 
-| Método | Ruta                   | Descripción                                                | Auth            |
-| ------ | ---------------------- | ---------------------------------------------------------- | --------------- |
-| POST   | `/api/ci/audits`       | Auditar repo/ref desde CI; devuelve resultado o id async.  | API key (CI)    |
-| POST   | `/api/github/webhook`  | Webhook de GitHub App (firma HMAC).                        | Firma           |
+Autenticación por API key de repositorio (no JWT de usuario): header `X-Codexa-Api-Key` con el
+valor devuelto por `POST /api/repositories/{id}/ci-key` (§3.4). El repositorio auditado se resuelve
+a partir de esa key — el body nunca indica `repositoryId`.
+
+| Método | Ruta                     | Descripción                                                  | Auth            |
+| ------ | ------------------------ | ------------------------------------------------------------- | --------------- |
+| POST   | `/api/ci/audits`         | Encola una auditoría del repositorio (opcionalmente de un `ref` específico, ej. la head branch de un PR). Mismo patrón async que §4.1. | API key (CI) |
+| GET    | `/api/ci/audits/{id}`    | Detalle/estado de una auditoría de CI, para *polling*.        | API key (CI)    |
 
 ```
 POST /api/ci/audits
-X-Api-Key: <workflow key>
+X-Codexa-Api-Key: cxa_3f9a1c...
 {
-  "repositoryUrl": "https://github.com/me/codexa",
-  "ref": "refs/heads/main",
-  "files": [ "src/**" ]          // paths cambiados en el PR
+  "ref": "feature/mi-rama",   // opcional; sin esto audita la rama por defecto
+  "provider": "anthropic",    // opcional
+  "model": "claude-sonnet-4-5" // opcional
 }
+
+201
+{ "id": "7a1b2c3d-...", "status": "pending" }
+```
+
+```
+GET /api/ci/audits/{id}
+X-Codexa-Api-Key: cxa_3f9a1c...
 
 200
 {
-  "auditId": "...",
+  "id": "7a1b2c3d-...",
+  "status": "completed",
+  "commitSha": "a1b2c3d",
   "healthScore": 87,
-  "criticalCount": 2,
-  "findings": [ { "ruleId": "CD-001", "severity": "critical", "filePath": "...", "lineNumber": 210 } ]
+  "severityCounts": { "critical": 2, "medium": 13, "low": 9 },
+  "totalFindings": 24,
+  "estimatedDebtHours": "8.5",
+  "errorMessage": null,
+  "findings": [ { "ruleId": "CD-001", "severity": "critical", "filePath": "...", "lineNumber": 210 } ],
+  "suggestions": [ { "type": "refactor", "title": "Divide PaymentService", "targetFile": "...", "targetLine": 77 } ]
 }
 ```
+
+> La GitHub Action `codexa/audit` (`apps/github-action`, ver [13-GitHub-Integration]) usa estos dos
+> endpoints: dispara la auditoría, hace *polling* hasta `completed`/`failed`, y con el resultado
+> publica un comentario resumen + comentarios inline (solo hallazgos críticos en líneas del diff)
+> en el Pull Request. El webhook de la GitHub App (`POST /api/github/webhook`) no está implementado
+> todavía — queda para el siguiente slice de la Fase 3.
 
 ---
 
@@ -328,7 +366,7 @@ MVP; se documentará en [24-Future-Features].
 - [x] Detalle de auditoría con los tres bloques (findings, suggestions, modules) — vive en
       `GET .../audits/{id}`, no en un endpoint `/report` separado (diseño final, ver §4.2).
 - [x] Export a PDF (`GET .../audits/{id}/export.pdf`). Md/html no implementados.
-- [ ] `/api/ci/audits` con API key de workflow.
+- [x] `/api/ci/audits` con API key de workflow (repositorio, no usuario).
 - [x] Swagger público en dev (`/api/docs`, gateado por `SWAGGER_ENABLED`).
 - [ ] Tests de contrato: ejemplos de este documento como fixtures de integración.
 
@@ -339,7 +377,9 @@ MVP; se documentará en [24-Future-Features].
 | Versión | Fecha      | Cambios                              |
 | ------- | ---------- | ------------------------------------ |
 | v0.1    | 2026-08-05 | Primera versión completa (Entrega 3) |
+| v0.2    | 2026-08-20 | §3.4 y §5 actualizadas al endpoint real de CI (API key de repositorio, no de workflow genérico; sin `/api/github/webhook` todavía). |
 
 ---
 
 [24-Future-Features]: 24-Future-Features.md
+[13-GitHub-Integration]: 13-GitHub-Integration.md
