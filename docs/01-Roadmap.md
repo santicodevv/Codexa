@@ -134,17 +134,17 @@ fase más crítica del proyecto**: aquí se valida que la combinación AST + LLM
 | F2-05 | Dashboard: lista de repositorios + resumen de última auditoría    | P0        |
 | F2-06 | Dashboard: detalle de hallazgos y sugerencias                      | P1        |
 | F2-07 | Historial de auditorías por repositorio                           | P1        |
-| F2-08 | Exportación de reportes en PDF                                     | P1        |
-| F2-09 | Cola de auditorías (process jobs) con Redis                       | P2        |
-| F2-10 | Tendencias del Health Score en el tiempo (inicio)                 | P2        |
+| F2-08 | Exportación de reportes en PDF                                     | P1 ✅      |
+| F2-09 | Cola de auditorías (process jobs) con Redis                       | P2 ✅      |
+| F2-10 | Tendencias del Health Score en el tiempo (inicio)                 | P2 ✅      |
 
 ### Criterios de salida de la Fase 2
 
-- [ ] Un usuario se registra, crea un repositorio y dispara una auditoría desde el dashboard.
-- [ ] El dashboard muestra el reporte completo con el mismo contenido que el CLI.
-- [ ] Los reportes quedan persistidos y consultables en el historial.
-- [ ] La API expone el contrato documentado en [14-API-Documentation].
-- [ ] Autenticación con rate limiting y refresh de tokens.
+- [x] Un usuario se registra, crea un repositorio y dispara una auditoría desde el dashboard.
+- [x] El dashboard muestra el reporte completo con el mismo contenido que el CLI.
+- [x] Los reportes quedan persistidos y consultables en el historial.
+- [x] La API expone el contrato documentado en [14-API-Documentation].
+- [x] Autenticación con rate limiting y refresh de tokens.
 
 ---
 

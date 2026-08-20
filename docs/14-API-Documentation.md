@@ -146,50 +146,37 @@ Authorization: Bearer <token>
   "model": "gpt-4o"          // opcional
 }
 
-202 Accepted
-{ "auditId": "7a1b2c3d-...", "status": "queued", "estimatedSeconds": 45 }
+201 Created
+{ "id": "7a1b2c3d-...", "status": "pending" }
 ```
 
-> El `202` indica procesamiento asíncrono (Fase 2). El cliente consulta el estado con
-> `GET /api/audits/{auditId}`.
+> Ejecución asíncrona vía cola BullMQ sobre Redis: la respuesta es inmediata (`status: pending`);
+> un proceso worker separado (`npm run start:worker`) consume la cola y transiciona el estado
+> `pending → running → completed|failed`. El cliente hace *polling* con
+> `GET .../audits/{auditId}` (el dashboard reintenta cada 2s con timeout de 5 min).
 
-### 4.2 Estado de una auditoría
+### 4.2 Detalle de una auditoría
 
 ```
-GET /api/audits/{auditId}
+GET /api/repositories/{repositoryId}/audits/{auditId}
 Authorization: Bearer <token>
 
 200
 {
   "id": "7a1b2c3d-...",
-  "repositoryId": "...",
+  "repository": { "name": "...", "url": "..." },
   "status": "completed",
   "commitSha": "a1b2c3d",
   "provider": "openai",
   "model": "gpt-4o",
   "healthScore": 87,
-  "criticalCount": 2,
-  "mediumCount": 13,
-  "lowCount": 9,
-  "estimatedDebtHours": 8.5,
+  "severityCounts": { "critical": 2, "medium": 13, "low": 9 },
   "totalFindings": 24,
+  "estimatedDebtHours": "8.5",
   "durationMs": 38200,
   "startedAt": "2026-08-05T16:00:00Z",
   "completedAt": "2026-08-05T16:00:38Z",
-  "errorMessage": null
-}
-```
-
-### 4.3 Detalle del reporte
-
-```
-GET /api/audits/{auditId}/report
-Authorization: Bearer <token>
-
-200
-{
-  "audit": { ... } ,
-  "summary": "El módulo de pagos concentra la mayor deuda...",
+  "errorMessage": null,
   "findings": [
     {
       "id": "...",
@@ -213,28 +200,27 @@ Authorization: Bearer <token>
       "targetLine": 77
     }
   ],
-  "modules": [
-    { "moduleName": "Services", "moduleScore": 62, "findingCount": 11 }
-  ],
-  "exportLinks": {
-    "markdown": "/api/audits/{id}/report.export?format=md",
-    "html": "/api/audits/{id}/report.export?format=html",
-    "pdf": "/api/audits/{id}/report.export?format=pdf"
-  }
+  "moduleSummaries": [
+    { "id": "...", "moduleName": "Services", "moduleScore": 62, "findingCount": 11 }
+  ]
 }
 ```
 
-### 4.4 Exportar reporte
+> Un único endpoint devuelve la auditoría con hallazgos, sugerencias de IA y resumen por módulo
+> incluidos — no hay un endpoint `/report` separado.
+
+### 4.3 Exportar a PDF
 
 ```
-GET /api/audits/{auditId}/report.export?format=md|html|pdf
+GET /api/repositories/{repositoryId}/audits/{auditId}/export.pdf
 Authorization: Bearer <token>
 
 200
-Content-Disposition: attachment; filename="codexa-report.md"
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="codexa-audit-{auditId}.pdf"
 ```
 
-### 4.5 Historial del repositorio
+### 4.4 Historial del repositorio
 
 ```
 GET /api/repositories/{repositoryId}/audits?page=1&pageSize=20
@@ -243,6 +229,31 @@ Authorization: Bearer <token>
 200
 { "items": [ { ... auditoría ... } ], "page": 1, "pageSize": 20, "totalCount": 3, ... }
 ```
+
+### 4.5 Tendencia del Health Score
+
+```
+GET /api/repositories/{repositoryId}/audits/trend?limit=20
+Authorization: Bearer <token>
+
+200
+{
+  "items": [
+    {
+      "id": "...",
+      "healthScore": 87,
+      "criticalCount": 2,
+      "mediumCount": 13,
+      "lowCount": 9,
+      "totalFindings": 24,
+      "startedAt": "2026-08-05T16:00:00Z"
+    }
+  ]
+}
+```
+
+> Solo incluye auditorías con `status: completed`, ordenadas cronológicamente (más antigua
+> primero). `limit` por defecto 20.
 
 ---
 
@@ -312,12 +323,13 @@ MVP; se documentará en [24-Future-Features].
 
 ## 9. Checklist de implementación
 
-- [ ] Middleware de errores → ProblemDetails consistente.
-- [ ] Paginación uniforme en todos los listados.
-- [ ] `GET /api/audits/{id}/report` con los tres bloques (findings, suggestions, modules).
-- [ ] `report.export` en md/html (pdf en Fase 2).
+- [x] Middleware de errores → ProblemDetails consistente (`ProblemDetailsFilter`).
+- [ ] Paginación uniforme en todos los listados (falta en `GET /repositories`).
+- [x] Detalle de auditoría con los tres bloques (findings, suggestions, modules) — vive en
+      `GET .../audits/{id}`, no en un endpoint `/report` separado (diseño final, ver §4.2).
+- [x] Export a PDF (`GET .../audits/{id}/export.pdf`). Md/html no implementados.
 - [ ] `/api/ci/audits` con API key de workflow.
-- [ ] Swagger público en dev.
+- [x] Swagger público en dev (`/api/docs`, gateado por `SWAGGER_ENABLED`).
 - [ ] Tests de contrato: ejemplos de este documento como fixtures de integración.
 
 ---

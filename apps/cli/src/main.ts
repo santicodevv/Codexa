@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config'
 import { Command } from 'commander'
 import { registerAuditCommand } from './commands/audit.command'
 import { registerProvidersCommand } from './commands/providers.command'
