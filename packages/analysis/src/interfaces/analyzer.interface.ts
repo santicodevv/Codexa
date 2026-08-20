@@ -4,6 +4,7 @@ import type { Finding } from './result.types'
 export interface AnalysisContext {
   rootDir: string
   language: LanguageId
+  files: string[]
 }
 
 export interface AnalyzerResult {

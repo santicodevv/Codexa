@@ -1,3 +1,7 @@
 export * from './interfaces/analyzer.interface'
 export * from './interfaces/result.types'
 export * from './scoring/health-score-calculator'
+export * from './collectors/repo-collector'
+export * from './analyzers/index'
+export * from './orchestrator/analyze'
+export * from './orchestrator/findings-unifier'

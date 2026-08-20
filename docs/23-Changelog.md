@@ -27,7 +27,66 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 3. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
+## 3. [0.3.0] — 2026-08-13 (Fase 2: cierre P1/P2)
+
+> Cierra los ítems P1/P2 pendientes de la Fase 2: cola de auditorías async, export PDF y
+> tendencias de Health Score.
+
+### Added
+- Cola de auditorías con **BullMQ** sobre Redis: `POST /repositories/:id/audits` ahora encola el
+  trabajo y responde de inmediato con `status: pending`; un proceso worker separado
+  (`npm run start:worker`, `apps/api/src/worker.ts`) consume la cola y ejecuta el análisis +
+  sugerencias de IA. `AuditsService.run()` se dividió en `enqueue()` (crea la fila `Audit` y
+  encola el job) y `processAudit()` (la ejecución real, invocada por el worker).
+- Exportación de reportes a **PDF** (`pdfkit`): `GET /repositories/:id/audits/:auditId/export.pdf`
+  genera un PDF con Health Score, severidades, deuda técnica, resumen por módulo, sugerencias de
+  IA y hallazgos. Botón "Descargar PDF" en el dashboard.
+- **Tendencias de Health Score**: `GET /repositories/:id/audits/trend` devuelve los últimos N
+  audits completados; nuevo componente `HealthScoreTrendChart` (SVG propio, sin librería nueva)
+  en el detalle de repositorio.
+- El dashboard ahora hace *polling* del estado de la auditoría (`pending`/`running` →
+  `completed`/`failed`) en vez de esperar una respuesta síncrona, con timeout de 5 minutos que
+  avisa si el worker no está corriendo.
+
+### Changed
+- `POST /repositories/:id/audits` pasó de responder el resultado final (síncrono) a responder
+  `202`-like `{ status: 'pending' }` de inmediato. Un repositorio con `url`/`localPath` inválido
+  ya no falla con 400 en el POST: crea una fila `Audit` que pasa a `failed` una vez que el worker
+  la procesa (trade-off inherente a ir async).
+
+---
+
+## 4. [0.2.0] — 2026-08-12 (Fase 2: plataforma web)
+
+> Fase 2: API + dashboard + persistencia con PostgreSQL/Redis.
+
+### Added
+- Módulo `auth`: registro con política de contraseñas, login, refresh rotativo con revocación de familia y logout (bcrypt cost 12).
+- Módulo `repositories` (CQRS): crear, listar, detalle y eliminar con propiedad del usuario (evita IDOR).
+- Módulo `audits` (CQRS): ejecución síncrona persistida (audits + findings + ai_suggestions + module_summaries + llm_usages) con transacción única, historial paginado y rate limiting vía Redis.
+- Soporte de fuente por `localPath` o clonado `git clone --depth 1` desde URL remota.
+- Módulo Redis común (`RedisService`) para caché y rate limiting.
+- `JwtAuthGuard` global con decorador `@Public()` y `@CurrentUser` desde el token.
+- Dashboard React (React Router + axios): login/registro, lista de repositorios con última auditoría, detalle con Health Score, sugerencias de IA, resumen por módulo, hallazgos e historial.
+- Interceptor axios con renovación automática del refresh token ante 401.
+
+### Changed
+- `AppModule` de la API registra auth, repositories y audits con CQRS.
+
+### Added
+- Caché en Redis de sugerencias de IA por `repositorio + commit + proveedor + modelo` (`LLM_CACHE_TTL_SECONDS`, default 24h). Evita repetir la llamada al LLM cuando se re-audita el mismo commit; solo aplica cuando el directorio tiene un commit de git resuelto.
+
+### Fixed
+- Rate limiting vía Redis en `POST /auth/register` y `POST /auth/login` (10 intentos / 15 min por IP); antes solo cubría el endpoint de auditorías pese a lo indicado en este changelog.
+- Error de tipos en `audits.service.spec.ts` (mock de `ConfigService` mal tipado).
+- `App.test.tsx` desactualizado: ahora verifica el contenido real de la página de login en vez del heading "Codexa" que ya no existe.
+
+### Removed
+- Fixture `tools/fixtures/demo-app` y su golden de evaluación (se mantienen `ts-basic`, `js-esm`, `npm-lock`).
+
+---
+
+## 5. [0.1.0] — 2026-08-05 (lanzamiento de la fase MVP)
 
 > Fase 1: auditoría local + reporte con sugerencias de IA.
 
@@ -43,7 +102,7 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 
 ---
 
-## 4. Formato de una entrada
+## 5. Formato de una entrada
 
 ```markdown
 ## [X.Y.Z] — AAAA-MM-DD
@@ -62,7 +121,7 @@ Reglas:
 
 ---
 
-## 5. Historial del documento
+## 6. Historial del documento
 
 | Versión | Fecha      | Cambios                              |
 | ------- | ---------- | ------------------------------------ |
