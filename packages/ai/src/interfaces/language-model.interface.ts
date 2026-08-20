@@ -25,6 +25,11 @@ export interface LanguageModelResponse {
   usage: LanguageModelUsage
 }
 
+export interface CompleteOptions {
+  model?: string
+  maxTokens?: number
+}
+
 export interface ILanguageModel {
-  complete(messages: ChatMessage[]): Promise<LanguageModelResponse>
+  complete(messages: ChatMessage[], options?: CompleteOptions): Promise<LanguageModelResponse>
 }

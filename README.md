@@ -129,6 +129,12 @@ npm run db:seed
 # 6. Iniciar la API (puerto 3001) y el frontend (puerto 5173, proxy a /api)
 npm run dev:api
 npm run dev:web
+
+# 7. Worker de auditorías (procesa la cola BullMQ) — terminal aparte,
+#    mismas variables de entorno que la API (REDIS_URL, DATABASE_URL, LLM_*).
+#    Sin esto, las auditorías se quedan en estado "pending" indefinidamente.
+npm run --workspace=apps/api build
+npm run --workspace=apps/api start:worker
 ```
 
 El proyecto es un monorepo npm workspaces:

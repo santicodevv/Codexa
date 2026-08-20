@@ -4,10 +4,12 @@ import { calculateHealthScore } from './health-score-calculator'
 
 function finding(severity: FindingSeverity): Finding {
   return {
+    id: `TEST-${Math.random().toString(36).slice(2)}`,
     ruleId: 'TEST-001',
     severity,
     message: 'hallazgo de prueba',
     filePath: 'src/main.ts',
+    likelihood: 1,
   }
 }
 

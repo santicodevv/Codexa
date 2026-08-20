@@ -26,7 +26,8 @@
     "@codexa/analysis": "0.0.0",
     "@codexa/cli-core": "0.0.0",
     "@codexa/contracts": "0.0.0",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.14",

@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none">
+  <!-- Background circles -->
+  <circle cx="250" cy="250" r="180" fill="#73114b" fill-opacity="0.08"/>
+  <circle cx="250" cy="250" r="140" fill="#73114b" fill-opacity="0.05"/>
+
+  <!-- Floating elements -->
+  <circle cx="80" cy="120" r="25" fill="#7f265b" fill-opacity="0.3"/>
+  <circle cx="420" cy="380" r="35" fill="#7f265b" fill-opacity="0.2"/>
+  <circle cx="400" cy="100" r="15" fill="#73114b" fill-opacity="0.4"/>
+  <circle cx="100" cy="400" r="20" fill="#73114b" fill-opacity="0.25"/>
+
+  <!-- Small decorative dots -->
+  <circle cx="150" cy="80" r="4" fill="#7f265b"/>
+  <circle cx="350" cy="420" r="3" fill="#7f265b"/>
+  <circle cx="450" cy="200" r="5" fill="#73114b" fill-opacity="0.5"/>
+  <circle cx="50" cy="300" r="4" fill="#73114b" fill-opacity="0.5"/>
+
+  <!-- Main laptop/screen -->
+  <rect x="120" y="160" rx="12" ry="12" width="260" height="180" fill="#2d2d2d"/>
+  <rect x="130" y="170" rx="6" ry="6" width="240" height="150" fill="#1a1a2e"/>
+
+  <!-- Code lines on screen -->
+  <rect x="145" y="185" width="80" height="8" rx="4" fill="#7f265b"/>
+  <rect x="235" y="185" width="50" height="8" rx="4" fill="#e8e8e8" fill-opacity="0.3"/>
+
+  <rect x="145" y="205" width="30" height="8" rx="4" fill="#e8e8e8" fill-opacity="0.2"/>
+  <rect x="185" y="205" width="100" height="8" rx="4" fill="#73114b" fill-opacity="0.6"/>
+
+  <rect x="160" y="225" width="60" height="8" rx="4" fill="#e8e8e8" fill-opacity="0.25"/>
+  <rect x="230" y="225" width="70" height="8" rx="4" fill="#7f265b" fill-opacity="0.5"/>
+
+  <rect x="160" y="245" width="90" height="8" rx="4" fill="#73114b" fill-opacity="0.4"/>
+  <rect x="260" y="245" width="40" height="8" rx="4" fill="#e8e8e8" fill-opacity="0.2"/>
+
+  <rect x="145" y="265" width="45" height="8" rx="4" fill="#e8e8e8" fill-opacity="0.2"/>
+  <rect x="200" y="265" width="80" height="8" rx="4" fill="#7f265b"/>
+
+  <rect x="145" y="285" width="120" height="8" rx="4" fill="#73114b" fill-opacity="0.5"/>
+
+  <!-- Laptop base -->
+  <path d="M100 340 L120 340 L120 350 L380 350 L380 340 L400 340 L400 360 Q400 370 390 370 L110 370 Q100 370 100 360 Z" fill="#3d3d3d"/>
+
+  <!-- Magnifying glass (audit symbol) -->
+  <circle cx="340" cy="140" r="40" stroke="#7f265b" stroke-width="6" fill="white"/>
+  <circle cx="340" cy="140" r="30" stroke="#73114b" stroke-width="2" fill="none"/>
+  <line x1="370" y1="170" x2="400" y2="200" stroke="#7f265b" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Checkmark inside magnifying glass -->
+  <path d="M320 140 L335 155 L360 125" stroke="#73114b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Floating code brackets -->
+  <text x="70" y="220" font-family="monospace" font-size="40" fill="#7f265b" fill-opacity="0.6">{</text>
+  <text x="410" y="280" font-family="monospace" font-size="40" fill="#7f265b" fill-opacity="0.6">}</text>
+
+  <!-- Bug icon (to be found) -->
+  <g transform="translate(90, 300)">
+    <ellipse cx="15" cy="15" rx="12" ry="10" fill="#73114b" fill-opacity="0.4"/>
+    <circle cx="10" cy="10" r="3" fill="#2d2d2d"/>
+    <circle cx="20" cy="10" r="3" fill="#2d2d2d"/>
+    <line x1="5" y1="20" x2="0" y2="28" stroke="#73114b" stroke-width="2" stroke-linecap="round"/>
+    <line x1="25" y1="20" x2="30" y2="28" stroke="#73114b" stroke-width="2" stroke-linecap="round"/>
+    <line x1="3" y1="12" x2="-3" y2="8" stroke="#73114b" stroke-width="2" stroke-linecap="round"/>
+    <line x1="27" y1="12" x2="33" y2="8" stroke="#73114b" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Shield (security symbol) -->
+  <g transform="translate(380, 240)">
+    <path d="M25 5 L45 15 L45 35 Q45 50 25 60 Q5 50 5 35 L5 15 Z" fill="#7f265b" fill-opacity="0.3" stroke="#7f265b" stroke-width="2"/>
+    <path d="M18 32 L23 37 L35 25" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Gear (settings/process) -->
+  <g transform="translate(60, 160)">
+    <circle cx="20" cy="20" r="8" fill="none" stroke="#73114b" stroke-width="3"/>
+    <path d="M20 5 L20 10 M20 30 L20 35 M5 20 L10 20 M30 20 L35 20 M9 9 L13 13 M27 27 L31 31 M9 31 L13 27 M27 13 L31 9" stroke="#73114b" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Lightning bolt (fast analysis) -->
+  <g transform="translate(420, 140)">
+    <path d="M15 0 L5 18 L12 18 L8 35 L25 12 L16 12 L22 0 Z" fill="#7f265b" fill-opacity="0.5"/>
+  </g>
+
+  <!-- Stars/sparkles -->
+  <path d="M180 100 L183 108 L191 108 L185 113 L187 121 L180 116 L173 121 L175 113 L169 108 L177 108 Z" fill="#73114b" fill-opacity="0.4"/>
+  <path d="M320 390 L322 395 L327 395 L323 398 L324 403 L320 400 L316 403 L317 398 L313 395 L318 395 Z" fill="#7f265b" fill-opacity="0.5"/>
+</svg>
