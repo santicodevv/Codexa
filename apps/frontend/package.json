@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "@codexa/contracts": "0.0.0",
+    "axios": "^1.19.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

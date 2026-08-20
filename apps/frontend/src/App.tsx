@@ -1,24 +1,51 @@
-import type { ReactElement } from 'react'
-import type { HealthCheckDto } from '@codexa/contracts'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import type { ReactElement, ReactNode } from 'react'
+import { AuthProvider, useAuth } from './auth/AuthContext'
+import { AuthPage } from './pages/AuthPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { RepositoryDetailPage } from './pages/RepositoryDetailPage'
+import { Spinner } from './components/Spinner'
 
-const SERVICE_NAME = 'codexa-api'
-const VERSION = '0.1.0'
+function ProtectedRoute({ children }: { children: ReactNode }): ReactElement {
+  const { user, initializing } = useAuth()
+  if (initializing) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Spinner />
+      </main>
+    )
+  }
+  if (user === null) {
+    return <Navigate to="/login" replace />
+  }
+  return <>{children}</>
+}
 
 export function App(): ReactElement {
-  const health: HealthCheckDto = {
-    status: 'ok',
-    service: SERVICE_NAME,
-    version: VERSION,
-    timestamp: new Date().toISOString(),
-  }
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50">
-      <h1 className="text-4xl font-bold text-slate-900">Codexa</h1>
-      <p className="text-slate-600">Auditoría de código con IA</p>
-      <p className="text-sm text-slate-400">
-        {health.service} · {health.version}
-      </p>
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<AuthPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/repositories/:repositoryId"
+            element={
+              <ProtectedRoute>
+                <RepositoryDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
