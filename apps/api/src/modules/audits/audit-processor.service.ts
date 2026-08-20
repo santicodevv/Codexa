@@ -20,7 +20,8 @@ export class AuditProcessorService implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     this.worker = new Worker(
       AUDITS_QUEUE_NAME,
-      async (job: Job<{ auditId: string }>) => this.audits.processAudit(job.data.auditId),
+      async (job: Job<{ auditId: string; ref?: string }>) =>
+        this.audits.processAudit(job.data.auditId, job.data.ref),
       { connection: buildBullConnection(this.config), concurrency: 1 },
     )
     this.worker.on('completed', (job) => {

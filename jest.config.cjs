@@ -6,6 +6,7 @@ module.exports = {
     '<rootDir>/packages/**/*.spec.ts',
     '<rootDir>/apps/api/src/**/*.spec.ts',
     '<rootDir>/apps/cli/src/**/*.spec.ts',
+    '<rootDir>/apps/github-action/src/**/*.spec.ts',
   ],
   moduleNameMapper: {
     '^@codexa/contracts$': '<rootDir>/packages/contracts/src/index.ts',
@@ -17,7 +18,12 @@ module.exports = {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.base.json' }],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
-  collectCoverageFrom: ['packages/**/src/**/*.ts', 'apps/api/src/**/*.ts', 'apps/cli/src/**/*.ts'],
+  collectCoverageFrom: [
+    'packages/**/src/**/*.ts',
+    'apps/api/src/**/*.ts',
+    'apps/cli/src/**/*.ts',
+    'apps/github-action/src/**/*.ts',
+  ],
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '\\.module\\.ts$',

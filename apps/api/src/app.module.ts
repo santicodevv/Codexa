@@ -8,6 +8,7 @@ import { RedisModule } from './common/redis/redis.module'
 import { validateEnv } from './config/env.validation'
 import { AuditsModule } from './modules/audits/audits.module'
 import { AuthModule } from './modules/auth/auth.module'
+import { GithubModule } from './modules/github/github.module'
 import { HealthModule } from './modules/health/health.module'
 import { RepositoriesModule } from './modules/repositories/repositories.module'
 
@@ -21,6 +22,7 @@ import { RepositoriesModule } from './modules/repositories/repositories.module'
     AuthModule,
     RepositoriesModule,
     AuditsModule,
+    GithubModule,
   ],
   providers: [
     {
