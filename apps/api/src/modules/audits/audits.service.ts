@@ -39,6 +39,7 @@ export class AuditsService {
     ownerId: string,
     provider?: string,
     modelName?: string,
+    ref?: string,
   ): Promise<{ id: string; status: string }> {
     const repository = await this.prisma.repository.findFirst({
       where: { id: repositoryId, ownerId },
@@ -59,7 +60,7 @@ export class AuditsService {
 
     await this.auditsQueue.add(
       RUN_AUDIT_JOB,
-      { auditId: audit.id },
+      { auditId: audit.id, ref },
       {
         jobId: audit.id,
         attempts: 1,
@@ -71,7 +72,7 @@ export class AuditsService {
     return { id: audit.id, status: AuditStatus.Pending }
   }
 
-  async processAudit(auditId: string): Promise<{ id: string; status: string }> {
+  async processAudit(auditId: string, ref?: string): Promise<{ id: string; status: string }> {
     const audit = await this.prisma.audit.findUniqueOrThrow({
       where: { id: auditId },
       include: { repository: true },
@@ -86,6 +87,7 @@ export class AuditsService {
       const sourcePath = await this.resolveSourcePath(
         audit.repository.url,
         audit.repository.localPath,
+        ref,
       )
       const report = await runAnalysis({ rootDir: sourcePath })
       const llmRun = await this.runSuggestions(
@@ -129,12 +131,16 @@ export class AuditsService {
     }
   }
 
-  private async resolveSourcePath(url: string, localPath: string | null): Promise<string> {
+  private async resolveSourcePath(
+    url: string,
+    localPath: string | null,
+    ref?: string,
+  ): Promise<string> {
     if (localPath !== null && localPath.trim() !== '') {
       return path.resolve(localPath)
     }
     if (url !== null && url !== '') {
-      return this.cloneRepository(url)
+      return this.cloneRepository(url, ref)
     }
     throw new ServiceException(
       'El repositorio no tiene una fuente local ni remota',
@@ -143,19 +149,25 @@ export class AuditsService {
     )
   }
 
-  private async cloneRepository(url: string): Promise<string> {
+  private async cloneRepository(url: string, ref?: string): Promise<string> {
     if (!/^(https?:\/\/|git@)[^\s]+$/.test(url)) {
       throw new ServiceException('URL de repositorio inválida', 'repository.invalid_url', 400)
+    }
+    if (ref !== undefined && !/^[\w./-]+$/.test(ref)) {
+      throw new ServiceException('Ref de auditoría inválida', 'repository.invalid_ref', 400)
     }
 
     const workspace =
       this.config.get<string>('WORKSPACE_DIR') ?? path.join(os.tmpdir(), 'codexa-workspace')
     const destination = path.join(workspace, `${randomUUID()}`)
+    const cloneArgs = ['clone', '--depth', '1']
+    if (ref !== undefined) {
+      cloneArgs.push('--branch', ref)
+    }
+    cloneArgs.push(url, destination)
 
     try {
-      await execFileAsync('git', ['clone', '--depth', '1', url, destination], {
-        timeout: 120_000,
-      })
+      await execFileAsync('git', cloneArgs, { timeout: 120_000 })
       return destination
     } catch (error) {
       throw new ServiceException(

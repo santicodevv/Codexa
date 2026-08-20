@@ -19,5 +19,6 @@ import { GetHealthTrendHandler } from './queries/get-health-trend.handler'
     GetHealthTrendHandler,
     AuditRateLimitGuard,
   ],
+  exports: [AuditsService],
 })
 export class AuditsModule {}
