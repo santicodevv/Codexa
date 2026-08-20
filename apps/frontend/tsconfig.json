@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "vite.config.mts", "vitest.config.mts", "tailwind.config.ts"]
+  "include": ["src", "vite.config.mts", "vitest.config.mts"]
 }
