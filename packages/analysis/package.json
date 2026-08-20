@@ -14,7 +14,7 @@
     "@codexa/contracts": "0.0.0",
     "eslint": "^9.9.0",
     "globals": "^14.0.0",
-    "typescript": "^5.5.4"
+    "typescript": "^7.0.2"
   },
   "devDependencies": {
     "@types/node": "^20.14.14"
