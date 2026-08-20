@@ -157,11 +157,11 @@ fase más crítica del proyecto**: aquí se valida que la combinación AST + LLM
 | Ítem | Descripción                                                  | Prioridad |
 | ---- | ------------------------------------------------------------ | --------- |
 | F3-01 | GitHub App que lee repositorios con permisos mínimos         | P0        |
-| F3-02 | GitHub Action `codexa/audit` reutilizable                     | P0        |
-| F3-03 | Comentario de resumen de auditoría en el PR                  | P1        |
-| F3-04 | PR Review: comentarios inline en líneas con hallazgos        | P1        |
+| F3-02 | GitHub Action `codexa/audit` reutilizable                     | P0 ✅     |
+| F3-03 | Comentario de resumen de auditoría en el PR                  | P1 ✅     |
+| F3-04 | PR Review: comentarios inline en líneas con hallazgos        | P1 ✅     |
 | F3-05 | Webhooks para auditorías automáticas al hacer push           | P2        |
-| F3-06 | Reporte en el "Checks" de GitHub                             | P2        |
+| F3-06 | Reporte en el "Checks" de GitHub                             | P2 ✅     |
 
 ### Criterios de salida de la Fase 3
 
@@ -260,6 +260,7 @@ Toda fase, al cerrarse, debe cumplir:
 | Versión | Fecha      | Cambios                              |
 | ------- | ---------- | ------------------------------------ |
 | v0.1    | 2026-08-05 | Primera versión completa (Entrega 1) |
+| v0.2    | 2026-08-20 | Fase 3 slice 1: F3-02/03/04/06 (Action `codexa/audit`) cerrados; F3-01/05 (GitHub App, webhooks) pendientes. |
 
 ---
 

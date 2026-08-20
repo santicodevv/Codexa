@@ -13,11 +13,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build:packages && npm run build:api && npm run build:cli && npm run build:web",
+    "build": "npm run build:packages && npm run build:api && npm run build:cli && npm run build:web && npm run build:action",
     "build:packages": "npm run build --workspace @codexa/contracts --workspace @codexa/analysis --workspace @codexa/ai --workspace @codexa/cli-core",
     "build:api": "npm run build --workspace apps/api",
     "build:cli": "npm run build --workspace apps/cli",
     "build:web": "npm run build --workspace apps/frontend",
+    "build:action": "npm run build --workspace apps/github-action",
     "dev:api": "npm run build:packages && npm run start:dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/frontend",
     "lint": "eslint .",

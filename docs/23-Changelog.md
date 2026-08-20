@@ -17,6 +17,22 @@ Secciones por versión: `Added` / `Changed` / `Fixed` / `Security` / `Removed`.
 ## 2. [Unreleased]
 
 ### Added
+- **GitHub Action `codexa/audit`** (Fase 3, slice 1 — F3-02/03/04/06): nuevo workspace
+  `apps/github-action`, bundled con `@vercel/ncc`. Dispara auditorías vía la API de Codexa
+  (`POST /api/ci/audits`, autenticado por API key de repositorio en vez de JWT de usuario),
+  hace *polling* hasta que terminan, y publica un comentario resumen (Health Score, contadores,
+  sugerencias destacadas) más comentarios inline en el PR — estos últimos limitados a hallazgos
+  `critical` que caen en líneas efectivamente agregadas por el diff (parseado del `patch` de
+  `GET /pulls/{pr}/files`, sin librerías externas). Crea además un check run (`Codexa Audit`) con
+  conclusión `success`/`failure` según `fail-on-critical`. No depende de la GitHub App (§2 de
+  `docs/13-GitHub-Integration.md`, todavía sin implementar) — usa el `GITHUB_TOKEN` del propio
+  workflow consumidor.
+- Endpoints de CI en la API: `POST /api/repositories/:id/ci-key` (genera/rota la API key,
+  hash SHA-256 igual que los refresh tokens, valor en texto plano solo en esa respuesta),
+  `POST /api/ci/audits` y `GET /api/ci/audits/:id` (nuevo módulo `modules/github`, guard
+  `CiApiKeyGuard`). `AuditsService.enqueue`/`processAudit` aceptan ahora un `ref` opcional para
+  clonar una rama específica (antes siempre clonaba la rama por defecto, lo cual habría hecho que
+  la Action auditara `main` en vez del head del PR).
 - Esqueleto del monorepo npm workspaces (`apps/api`, `apps/cli`, `apps/frontend`, `packages/*`).
 - API NestJS con CQRS (`@nestjs/cqrs`) y Prisma (PostgreSQL 16).
 - Pipeline `AnalyzeAndSuggest` en `packages/ai` con provider Anthropic y validación `zod`.

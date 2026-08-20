@@ -36,17 +36,18 @@ model RefreshToken {
 }
 
 model Repository {
-  id          String     @id @default(uuid())
-  ownerId     String     @map("owner_id")
-  name        String
-  provider    String
-  url         String
-  localPath   String?    @map("local_path")
-  metadata    Json?      @default("{}")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  lastAuditAt DateTime?  @map("last_audit_at")
-  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  audits      Audit[]
+  id           String     @id @default(uuid())
+  ownerId      String     @map("owner_id")
+  name         String
+  provider     String
+  url          String
+  localPath    String?    @map("local_path")
+  metadata     Json?      @default("{}")
+  ciApiKeyHash String?    @unique @map("ci_api_key_hash")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  lastAuditAt  DateTime?  @map("last_audit_at")
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  audits       Audit[]
 
   @@map("repositories")
   @@unique([ownerId, provider, url], map: "uq_repositories_owner_provider_url")

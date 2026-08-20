@@ -15,6 +15,7 @@ import { CurrentUser } from '../../common/auth/current-user.decorator'
 import type { AuthenticatedUser } from '../../common/auth/current-user.decorator'
 import { CreateRepositoryCommand } from './commands/create-repository.command'
 import { DeleteRepositoryCommand } from './commands/delete-repository.command'
+import { GenerateCiKeyCommand } from './commands/generate-ci-key.command'
 import type { CreateRepositoryDto } from './dto/create-repository.dto'
 import { GetRepositoriesQuery } from './queries/get-repositories.query'
 import { GetRepositoryQuery } from './queries/get-repository.query'
@@ -55,5 +56,15 @@ export class RepositoriesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(new DeleteRepositoryCommand(repositoryId, user.id))
+  }
+
+  // Genera (o rota) la API key de CI del repositorio. El valor en texto plano solo
+  // se devuelve en esta respuesta; solo el hash queda persistido.
+  @Post(':repositoryId/ci-key')
+  async generateCiKey(
+    @Param('repositoryId', ParseUUIDPipe) repositoryId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.commandBus.execute(new GenerateCiKeyCommand(repositoryId, user.id))
   }
 }
